@@ -1,0 +1,274 @@
+# Example of a configured Docker Compose file
+# This demonstrates practices and should pass validation with minimal issues
+version: '3.8'
+
+services:
+  # Web server with proper configuration
+  nginx:
+    image: nginx:1.24-alpine  # Specific version tag
+    container_name: web_server
+    ports:
+      - "8080:80"  # Non-standard port to avoid conflicts
+      - "8443:443"
+    user: "101:101"  # nginx user
+    restart: unless-stopped
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/ssl:ro
+      - web_content:/usr/share/nginx/html:ro
+    networks:
+      - frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+    environment:
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
+      - NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/templates
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`example.com`)"
+
+  # API service with comprehensive configuration
+  api:
+    image: node:18-alpine
+    container_name: api_server
+    ports:
+      - "127.0.0.1:3000:3000"  # Bind to localhost only
+    user: "1000:1000"  # Non-root user
+    working_dir: /app
+    restart: unless-stopped
+    volumes:
+      - ./api:/app:ro
+      - node_modules:/app/node_modules
+      - api_logs:/app/logs
+    networks:
+      - frontend
+      - backend
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_NAME=appdb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    secrets:
+      - db_password
+      - jwt_secret
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`)"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Database with security best practices
+  database:
+    image: postgres:15-alpine
+    container_name: db_server
+    # No exposed ports - internal access only
+    user: "999:999"  # postgres user
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    networks:
+      - backend
+    environment:
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8
+    secrets:
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.8'
+        reservations:
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=10000
+      -c pg_stat_statements.track=all
+
+  # Redis cache with proper configuration
+  redis:
+    image: redis:7.0-alpine
+    container_name: cache_server
+    # No exposed ports - internal access only
+    user: "999:999"  # redis user
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - backend
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Background worker service
+  worker:
+    image: node:18-alpine
+    container_name: worker_service
+    user: "1000:1000"
+    restart: unless-stopped
+    volumes:
+      - ./worker:/app:ro
+      - node_modules:/app/node_modules
+      - worker_logs:/app/logs
+    networks:
+      - backend
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=production
+      - WORKER_CONCURRENCY=2
+      - DB_HOST=database
+      - REDIS_HOST=redis
+    secrets:
+      - db_password
+    working_dir: /app
+    command: ["node", "worker.js"]
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "worker.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Network definitions
+networks:
+  frontend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+  backend:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1450
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+    internal: true  # No external access
+
+# Volume definitions
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  node_modules:
+    driver: local
+  web_content:
+    driver: local
+  api_logs:
+    driver: local
+  worker_logs:
+    driver: local
+
+# Secrets for sensitive data
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+
+# Configuration files
+configs:
+  nginx_config:
+    file: ./nginx/nginx.conf
+  redis_config:
+    file: ./redis/redis.conf
