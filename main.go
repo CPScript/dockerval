@@ -1,16 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -124,7 +121,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "dockerval",
 		Short: "Docker Compose validator with AI assistance",
-		Long: `A comprehensive Docker Compose validation tool that performs static analysis
+		Long: `A Docker Compose validation tool that performs static analysis
 and optionally uses AI (via Groq) to provide intelligent suggestions for
 container orchestration improvements.`,
 	}
