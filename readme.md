@@ -1,6 +1,6 @@
 # Docker Compose Validator (dockerval)
 
-A comprehensive Docker Compose validation tool that performs static analysis and optionally uses AI (via Groq) to provide intelligent suggestions for container orchestration improvements.
+A Docker Compose validation tool that performs static analysis and optionally uses AI (via Groq) to provide intelligent suggestions for container orchestration improvements.
 
 ## Features
 
@@ -160,41 +160,26 @@ services:
 
 ### Sample Output
 
+<img width="668" height="416" alt="image" src="https://github.com/user-attachments/assets/6ac6f655-e4c9-4d9d-be77-f437f52b7cc1" />
+
+
 ```
-Validation Results for: docker-compose.yml
+Validation Results for: example/example_compose.yml
 ============================================================
 
-❌ ERRORS (2):
-  • [web] Service has neither image nor build configuration
-    💡 Specify either 'image' or 'build' for the service
-  • Port 8080 conflicts with service(s): web1, web2
-    💡 Use different host ports for each service
-
-⚠️  WARNINGS (3):
-  • [app] Using 'latest' tag or no tag specified
-    💡 Pin to specific version tags for reproducible builds
-  • [app] Service runs in privileged mode
-    💡 Avoid privileged mode unless absolutely necessary
-  • [app] Exposing sensitive SSH port 22
-    💡 Consider using a reverse proxy or VPN for sensitive services
-
-ℹ️  INFO (2):
-  • [web] No health check configured
-    💡 Add health check for better container monitoring
-  • [api] No resource limits configured
-    💡 Set CPU and memory limits to prevent resource exhaustion
+⚠️  WARNINGS (5):
+  • [database] Volume mounts to sensitive path: /etc/postgresql/postgresql.conf
+    💡 Be careful when mounting to system directories
+  • [redis] Volume mounts to sensitive path: /usr/local/etc/redis/redis.conf
+    💡 Be careful when mounting to system directories
+  • [nginx] Volume mounts to sensitive path: /etc/nginx/conf.d
+    💡 Be careful when mounting to system directories
+  • [nginx] Volume mounts to sensitive path: /etc/ssl
+    💡 Be careful when mounting to system directories
+  • [nginx] Volume mounts to sensitive path: /usr/share/nginx/html
+    💡 Be careful when mounting to system directories
 
 ------------------------------------------------------------
-Summary: 7 total issues (2 errors) (3 warnings) (2 info)
-
-============================================================
-🤖 AI ANALYSIS
-============================================================
-Based on the analysis of your Docker Compose file, here are my recommendations:
-
-1. **Architecture Improvements**: Consider implementing a reverse proxy...
-2. **Security Enhancements**: The current setup has several security concerns...
-3. **Performance Optimization**: For better performance in production...
 ```
 
 ## Validation Categories
@@ -329,4 +314,5 @@ MIT License - feel free to use and modify for your projects.
 
 - Use `--verbose` flag for detailed progress information
 - JSON output is faster for programmatic processing
+
 - Directory scans can be slow with many nested directories
