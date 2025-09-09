@@ -1,0 +1,37 @@
+# 1. Verify Go is installed (should be available in most codespace environments)
+go version
+
+# 2. Initialize the Go module and install dependencies
+go mod tidy
+
+# 3. Build the binary
+go build -o dockerval main.go
+
+# 4. Make it executable
+chmod +x dockerval
+
+# 5. Test basic functionality
+./dockerval --help
+
+# 6. Test with the example compose file
+./dockerval validate example/example_compose.yml
+
+# 7. Test with verbose output
+./dockerval validate -v example/example_compose.yml
+
+# 8. Test directory scanning
+./dockerval scan .
+
+# 9. Test configuration check (without Groq API)
+./dockerval check
+
+# 10. Optional: Set up Groq API for AI analysis (if you have an API key)
+export GROQ_API_KEY="your-groq-api-key-here"
+./dockerval analyze example/example_compose.yml
+
+# 11. Optional: Install system-wide for easier access
+sudo cp dockerval /usr/local/bin/
+dockerval --help
+
+# 12. Optional: Connect your groq API Key! (You can change the model you want to use via editing lines `1019` and `1076` in main.go)
+./dockerval analyze --groq-key "put-your-key-here" example/example_compose.yml
