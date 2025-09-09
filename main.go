@@ -1016,7 +1016,7 @@ Please provide:
 Focus on practical, actionable advice that goes beyond the static analysis results.`, composeContent, string(issuesJSON))
 
 	request := GroqRequest{
-		Model: "mixtral-8x7b-32768",
+		Model: "llama-3.1-8b-instant",
 		Messages: []Message{
 			{
 				Role:    "system",
@@ -1073,7 +1073,7 @@ func testGroqConnection() error {
 	}
 
 	request := GroqRequest{
-		Model: "mixtral-8x7b-32768",
+		Model: "llama-3.1-8b-instant",
 		Messages: []Message{
 			{
 				Role:    "user",
@@ -1115,7 +1115,7 @@ func checkDockerAvailability() error {
 	client := &http.Client{Timeout: 5 * time.Second}
 	
 	// Check if Docker daemon is running by trying to connect to the socket
-	// This is a simple check - in a real implementation you might use the Docker SDK
+	// This is a simple check - might use the Docker SDK instead in the future
 	req, err := http.NewRequest("GET", "http://localhost/version", nil)
 	if err != nil {
 		return fmt.Errorf("Docker not available")
